@@ -6,6 +6,7 @@ import {
   objectIsEmpty,
   schemaHasAsyncValidation,
   formatYupErrors,
+  useIsMounted,
 } from './utils'
 
 export default function useFormal<Schema>(
@@ -20,6 +21,8 @@ export default function useFormal<Schema>(
   const [isValidating, setIsValidating] = useState<boolean>(false)
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false)
   const [isSubmitted, setIsSubmitted] = useState<boolean>(false)
+
+  const isMounted = useIsMounted()
 
   const isDirty = useMemo(() => !isEqual(lastValues, values), [
     lastValues,
@@ -50,6 +53,8 @@ export default function useFormal<Schema>(
     }
 
     return new Promise(async (resolve, reject) => {
+      if (!isMounted()) reject()
+
       const isAsync = schemaHasAsyncValidation<Schema>(schema, values)
 
       try {
@@ -60,13 +65,17 @@ export default function useFormal<Schema>(
         await schema[validationMethod](values, { abortEarly: false })
         resolve()
       } catch (error) {
+        if (!isMounted()) return
+
         setErrors(formatYupErrors<Schema>(error))
         reject()
       } finally {
+        if (!isMounted()) return
+
         if (isAsync) setIsValidating(false)
       }
     })
-  }, [schema, values, clearErrors, setErrors])
+  }, [schema, isMounted, values, clearErrors])
 
   const reset = useCallback(() => {
     setValues(lastValues)
@@ -77,17 +86,21 @@ export default function useFormal<Schema>(
     if (schema) {
       try {
         await validate()
-      } catch (error) {
+        if (!isMounted()) return
+      } catch {
         return
       }
     }
 
     setIsSubmitting(true)
+    
     await onSubmit(values)
+    if (!isMounted()) return
+
     setLastValues(values)
     setIsSubmitted(true)
     setIsSubmitting(false)
-  }, [schema, validate, onSubmit, values])
+  }, [schema, onSubmit, values, isMounted, validate])
 
   const getFieldProps = useCallback(
     (field: keyof Schema) => ({

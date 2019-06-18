@@ -1,4 +1,5 @@
 /* eslint-disable no-restricted-syntax, @typescript-eslint/no-object-literal-type-assertion, no-prototype-builtins */
+import { useEffect, useRef } from 'react'
 import { Schema as YupSchema } from 'yup'
 
 import { FormalErrors } from './types'
@@ -36,4 +37,19 @@ export function schemaHasAsyncValidation<Schema>(
   }
 
   return false
+}
+
+// Check if component is still mounted
+export const useIsMounted = () => {
+  const ref = useRef<boolean>(false)
+
+  useEffect(() => {
+    ref.current = true
+
+    return () => {
+      ref.current = false
+    }
+  }, [])
+
+  return () => ref.current
 }
